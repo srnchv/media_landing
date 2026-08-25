@@ -26,29 +26,11 @@ import {
   footerCols,
 } from "../lib/content";
 
+import { Paren, Wordmark } from "../components/glyphs";
+
 /* ------------------------------------------------------------------ */
 /*  Мелкие детали                                                      */
 /* ------------------------------------------------------------------ */
-
-/* Скобки — рисованные заглушки под фирменные глифы из макета.
-   Чтобы поставить оригиналы, замените path на экспорт из Фигмы. */
-function Paren({ kind = "(" }) {
-  const d =
-    kind === "("
-      ? "M20 3 C7 16 7 64 20 77"
-      : kind === ")"
-      ? "M4 3 C17 16 17 64 4 77"
-      : kind === "["
-      ? "M20 3 H7 V77 H20"
-      : "M4 3 H17 V77 H4";
-  return (
-    <span className="paren" aria-hidden>
-      <svg viewBox="0 0 24 80" fill="none">
-        <path d={d} stroke="currentColor" strokeWidth="2.6" />
-      </svg>
-    </span>
-  );
-}
 
 /* Слово с анимацией смены: при изменении key элемент перемонтируется
    и проигрывается появление снизу */
@@ -56,14 +38,6 @@ function Swap({ text, className = "h1" }) {
   return (
     <span key={text} className={`swapWord ${className}`}>
       {text}
-    </span>
-  );
-}
-
-function Wordmark({ size }) {
-  return (
-    <span className="wordmark" style={size ? { fontSize: size } : undefined}>
-      charmer
     </span>
   );
 }
@@ -494,7 +468,7 @@ function ContactsLayer({ p }) {
         <Paren kind="[" />
         <span className="arrowGlyph">→</span>
         <Paren kind="]" />
-        <Wordmark size="6.4rem" />
+        <Wordmark height="6.4rem" />
       </a>
 
       <div className="footerGrid caption">
