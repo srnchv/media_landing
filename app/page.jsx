@@ -195,7 +195,15 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
         className={`hoverImage${hoverActive ? " on" : ""}`}
         style={{ width: `${iw}rem`, height: `${ih}rem` }}
       >
-        <div className="ph">{hovered != null ? works[hovered].title : ""}</div>
+        {hovered != null && works[hovered].image ? (
+          <img
+            className="photo"
+            src={works[hovered].image.src}
+            alt={works[hovered].title}
+          />
+        ) : (
+          <div className="ph">{hovered != null ? works[hovered].title : ""}</div>
+        )}
       </div>
     </div>
   );

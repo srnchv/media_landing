@@ -310,6 +310,13 @@ a {
   transform: translate(-50%, -50%) scale(1);
 }
 
+.hoverImage .photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .hoverImage .ph {
   width: 100%;
   height: 100%;
