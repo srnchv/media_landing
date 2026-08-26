@@ -328,7 +328,10 @@ a {
    ================================================================== */
 
 .mainLayer {
-  transition: transform 0.1s linear;
+  will-change: transform;
+}
+
+.contacts {
   will-change: transform;
 }
 

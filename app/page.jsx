@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   TOTAL,
   seg,
@@ -91,16 +91,14 @@ const RATIO_SIZE = {
 /*  Хиро-слой                                                          */
 /* ------------------------------------------------------------------ */
 
-function HeroLayer({ p }) {
+const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
   const [hovered, setHovered] = useState(null);
-  const fade = seg(p, "heroFade");
-  const heroDone = after(p, "heroFade");
 
   /* порядок исчезания: все ячейки + оба ряда заголовков */
   const order = useMemo(() => shuffledOrder(38), []);
-  const gone = (rank) => fade * 40 > order[rank] + 1;
+  const gone = (rank) => order[rank] < goneCount;
 
-  const hoverActive = hovered != null && fade === 0;
+  const hoverActive = hovered != null && goneCount === 0;
 
   const renderCell = (cell, rank) => {
     const cls = `cell${gone(rank) ? " gone" : ""}${
@@ -187,7 +185,7 @@ function HeroLayer({ p }) {
       </div>
 
       <p
-        className={`heroLead lead${fade > 0.85 ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
+        className={`heroLead lead${leadGone ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
       >
         {heroLead}
       </p>
@@ -201,7 +199,7 @@ function HeroLayer({ p }) {
       </div>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  Основная сцена                                                     */
@@ -216,33 +214,8 @@ const SKILL_HUES = [
   ["#1d3030", "#375c5c"],
 ];
 
-function MainLayer({ p }) {
-  const inT = seg(p, "mainIn");
-
-  /* режимы сцены */
-  const mode = !after(p, "p3")
-    ? "principles"
-    : !after(p, "skillsRun")
-    ? "skills"
-    : !after(p, "workRun")
-    ? "work"
-    : "clients";
-
-  const principleIdx = seg(p, "p3") > 0 ? 2 : seg(p, "p2") > 0 ? 1 : 0;
-  const skillIdx = Math.min(
-    5,
-    seg(p, "skillsIn") < 1 ? 0 : Math.floor(seg(p, "skillsRun") * 5.999)
-  );
-  const workCount =
-    mode !== "work"
-      ? 0
-      : seg(p, "workRun") > 0
-      ? Math.min(4, 2 + Math.floor(seg(p, "workRun") * 3))
-      : 1;
-  const logoIdx = Math.min(
-    brands.length - 1,
-    Math.floor(seg(p, "logosRun") * brands.length)
-  );
+const MainLayer = memo(function MainLayer({ ui, innerRef }) {
+  const { mode, principleIdx, skillIdx, workCount, logoIdx } = ui;
 
   /* верхний лид: колонтитул + текст */
   const leadCfg =
@@ -283,11 +256,9 @@ function MainLayer({ p }) {
 
   return (
     <div
+      ref={innerRef}
       className="layer mainLayer"
-      style={{
-        transform: `translateY(${(1 - inT) * 100}vh)`,
-        visibility: inT === 0 ? "hidden" : "visible",
-      }}
+      style={{ transform: "translate3d(0, 100vh, 0)", visibility: "hidden" }}
     >
       {/* верхний лид */}
       <div className="sectionLead">
@@ -434,21 +405,18 @@ function MainLayer({ p }) {
       </div>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  Контакты — красная шторка                                          */
 /* ------------------------------------------------------------------ */
 
-function ContactsLayer({ p }) {
-  const t = seg(p, "contactsIn");
+const ContactsLayer = memo(function ContactsLayer({ innerRef }) {
   return (
     <div
+      ref={innerRef}
       className="contacts"
-      style={{
-        transform: `translateY(${(1 - t) * 100}vh)`,
-        visibility: t === 0 ? "hidden" : "visible",
-      }}
+      style={{ transform: "translate3d(0, 100vh, 0)", visibility: "hidden" }}
     >
       <div className="sectionLead">
         <p className="lead leadText">{contactsLead}</p>
@@ -491,7 +459,7 @@ function ContactsLayer({ p }) {
       </button>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  Мобильная статичная версия                                         */
@@ -652,33 +620,105 @@ function Mobile() {
 /*  Страница                                                           */
 /* ------------------------------------------------------------------ */
 
+/* Дискретные состояния сцены — React рендерится только при их смене */
+function computeUi(p) {
+  const fade = seg(p, "heroFade");
+  const mode = !after(p, "p3")
+    ? "principles"
+    : !after(p, "skillsRun")
+    ? "skills"
+    : !after(p, "workRun")
+    ? "work"
+    : "clients";
+  return {
+    goneCount: Math.floor(fade * 40),
+    leadGone: fade > 0.85,
+    heroDone: after(p, "heroFade"),
+    mode,
+    principleIdx: seg(p, "p3") > 0 ? 2 : seg(p, "p2") > 0 ? 1 : 0,
+    skillIdx: Math.min(
+      5,
+      seg(p, "skillsIn") < 1 ? 0 : Math.floor(seg(p, "skillsRun") * 5.999)
+    ),
+    workCount:
+      mode !== "work"
+        ? 0
+        : seg(p, "workRun") > 0
+        ? Math.min(4, 2 + Math.floor(seg(p, "workRun") * 3))
+        : 1,
+    logoIdx: Math.min(
+      brands.length - 1,
+      Math.floor(seg(p, "logosRun") * brands.length)
+    ),
+  };
+}
+
 export default function Page() {
-  const [p, setP] = useState(0);
+  const [ui, setUi] = useState(() => computeUi(0));
+  const mainRef = useRef(null);
+  const contactsRef = useRef(null);
 
   useEffect(() => {
+    /* Один rAF-цикл: непрерывные движения пишутся напрямую в DOM
+       со сглаживанием (инерция), React получает только дискретные
+       переключения. Так скролл остаётся плавным. */
     let raf = 0;
-    const update = () => {
-      raf = 0;
-      setP(window.scrollY / window.innerHeight);
+    let smooth = window.scrollY / window.innerHeight;
+    let last = performance.now();
+    let prevUi = null;
+
+    const apply = (el, t) => {
+      if (!el) return;
+      el.style.transform = `translate3d(0, ${(1 - t) * 100}vh, 0)`;
+      el.style.visibility = t <= 0.001 ? "hidden" : "visible";
     };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
+
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const target = window.scrollY / window.innerHeight;
+
+      /* экспоненциальное сглаживание, независимое от FPS */
+      smooth += (target - smooth) * (1 - Math.exp(-dt * 10));
+      if (Math.abs(target - smooth) < 0.0004) smooth = target;
+
+      apply(mainRef.current, seg(smooth, "mainIn"));
+      apply(contactsRef.current, seg(smooth, "contactsIn"));
+
+      const next = computeUi(target);
+      if (
+        !prevUi ||
+        next.goneCount !== prevUi.goneCount ||
+        next.leadGone !== prevUi.leadGone ||
+        next.heroDone !== prevUi.heroDone ||
+        next.mode !== prevUi.mode ||
+        next.principleIdx !== prevUi.principleIdx ||
+        next.skillIdx !== prevUi.skillIdx ||
+        next.workCount !== prevUi.workCount ||
+        next.logoIdx !== prevUi.logoIdx
+      ) {
+        prevUi = next;
+        setUi(next);
+      }
+
+      raf = requestAnimationFrame(tick);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    update();
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
     <main>
       <div className="scroller" style={{ height: `calc(${TOTAL} * 100vh + 100vh)` }}>
         <div className="stage">
-          <HeroLayer p={p} />
-          <MainLayer p={p} />
-          <ContactsLayer p={p} />
+          <HeroLayer
+            goneCount={ui.goneCount}
+            leadGone={ui.leadGone}
+            heroDone={ui.heroDone}
+          />
+          <MainLayer ui={ui} innerRef={mainRef} />
+          <ContactsLayer innerRef={contactsRef} />
         </div>
       </div>
       <Mobile />
