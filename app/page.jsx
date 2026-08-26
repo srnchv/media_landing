@@ -473,151 +473,150 @@ const ContactsLayer = memo(function ContactsLayer({ innerRef }) {
 /*  Мобильная статичная версия                                         */
 /* ------------------------------------------------------------------ */
 
+/* Мобильный заголовок секции: колонтитул + лид */
+function MHeader({ n, label, text }) {
+  return (
+    <>
+      <div className="caption mHead">
+        <div>{n}</div>
+        <div>{label}</div>
+      </div>
+      <p className="lead mLead">{text}</p>
+    </>
+  );
+}
+
+/* Число (N) в скобках; align: left | center | right */
+function MNumber({ n, align = "left" }) {
+  return (
+    <div className={`mNum mNum-${align}`}>
+      <Paren kind="(" />
+      <span className="mWord">{n}</span>
+      <Paren kind=")" />
+    </div>
+  );
+}
+
 function Mobile() {
   return (
     <div className="mobile">
-      <section>
-        <div className="linkCell">
-          <Paren kind="[" />
-          <Wordmark />
-          <Paren kind="]" />
-        </div>
-        <div className="mGrid">
-          {works.slice(0, 2).map((w) => (
-            <WorkItem key={w.id} w={w} />
+      {/* ---------- хиро: лента проектов + слова ---------- */}
+      <section className="mHero">
+        <div className="mCards">
+          {works.slice(0, 6).map((w) => (
+            <div className="mCard" key={w.id}>
+              <WorkItem w={w} />
+              <div className="mCardImage">
+                {w.image ? (
+                  <img src={w.image.src} alt={w.title} />
+                ) : (
+                  <div className="ph" />
+                )}
+              </div>
+            </div>
           ))}
         </div>
-        <div className="mWords">
-          <span className="h1">дизайн</span>
-          <span className="h1">медиа,</span>
-          <span className="h1">которые</span>
-          <span className="h1">читают</span>
+        <div className="mStagger">
+          <div className="mWord mRowLeft">дизайн</div>
+          <div className="mRowSplit">
+            <span className="mWord">медиа</span>
+            <span className="mWord">,</span>
+          </div>
         </div>
-        <p className="lead">{heroLead}</p>
+        <p className="lead mLead">{heroLead}</p>
+        <div className="mStagger">
+          <div className="mWord mRowLeft">которые</div>
+          <div className="mWord mRowRight">читают</div>
+        </div>
       </section>
 
+      {/* ---------- o1 экспертиза: три принципа ---------- */}
       <section>
-        <div className="caption">
-          <div>o1</div>
-          <div>экспертиза</div>
-        </div>
-        <p className="lead" style={{ margin: "1.6rem 0" }}>{expertiseLead}</p>
+        <MHeader n="o1" label="экспертиза" text={expertiseLead} />
         {principles.map((pr, i) => (
-          <div className="mItem" key={i}>
-            <div className="num" style={{ display: "flex", alignItems: "center" }}>
-              <Paren kind="(" />
-              <span className="h1">{i + 1}</span>
-              <Paren kind=")" />
+          <div className="mPrinciple" key={i}>
+            <MNumber n={i + 1} align={["left", "center", "right"][i]} />
+            <div className="mStagger">
+              <div className="mWord mRowLeft">{pr.words[0]}</div>
+              <div className="mWord mRowCenter">{pr.words[1]}</div>
+              <div className="mWord mRowRight">{pr.words[2]}</div>
             </div>
-            <div className="mWords">
-              {pr.words.map((w) => (
-                <span className="h1" key={w}>{w}</span>
+            <div className="mBody">
+              {pr.paragraphs.map((t, j) => (
+                <p className="body" key={j}>{t}</p>
               ))}
             </div>
-            {pr.paragraphs.map((t, j) => (
-              <p className="body" key={j}>{t}</p>
-            ))}
           </div>
         ))}
       </section>
 
+      {/* ---------- o2 подход: умеем + работаем ---------- */}
       <section>
-        <div className="caption">
-          <div>o2</div>
-          <div>подход</div>
-        </div>
-        <p className="lead" style={{ margin: "1.6rem 0" }}>{approachLead}</p>
-        <div className="mWords">
-          <span className="h1">что</span>
-          <span className="h1">мы</span>
-          <span className="h1">умеем</span>
-        </div>
-        {skills.map((s, i) => (
-          <div className="mItem" key={i}>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <Paren kind="(" />
-              <span className="h1">{i + 1}</span>
-              <Paren kind=")" />
-            </div>
-            <div className="body" style={{ textTransform: "uppercase" }}>{s.title}</div>
-            <p className="body">{s.text}</p>
+        <MHeader n="o2" label="подход" text={approachLead} />
+        <div className="mSkillsHero">
+          <div className="mSkillsPhoto">
+            {works[0].image ? (
+              <img src={works[0].image.src} alt="" />
+            ) : (
+              <div className="ph" />
+            )}
           </div>
-        ))}
-        <div className="mWords">
-          <span className="h1">как</span>
-          <span className="h1">мы</span>
-          <span className="h1">работаем</span>
-        </div>
-        {workModes.map((m, i) => (
-          <div className="mItem" key={i}>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <Paren kind="(" />
-              <span className="h1">{i + 1}</span>
-              <Paren kind=")" />
-            </div>
-            <div className="body" style={{ textTransform: "uppercase" }}>{m.title}</div>
-            <p className="body">{m.text}</p>
+          <div className="mStagger over">
+            <div className="mWord mRowLeft">что</div>
+            <div className="mWord mRowCenter">мы</div>
+            <div className="mWord mRowRight">умеем</div>
           </div>
-        ))}
-      </section>
-
-      <section>
-        <div className="caption">
-          <div>o3</div>
-          <div>клиенты</div>
         </div>
-        <p className="lead" style={{ margin: "1.6rem 0" }}>{clientsLead}</p>
-        <div className="mWords">
-          <span className="h1">нам</span>
-          <span className="h1">доверяют</span>
-        </div>
-        <div className="mGrid">
-          {brands.map((b) => (
-            <div className="logoRow" key={b.id}>
-              <span className="brandPh">{b.name}</span>
+        <div className="mSwipe">
+          {skills.map((s, i) => (
+            <div className="mSwipeCard" key={i}>
+              <MNumber n={i + 1} />
+              <div className="body mTitle">{s.title}</div>
+              <p className="body">{s.text}</p>
             </div>
           ))}
         </div>
-        {testimonials.tochka && (
-          <div className="mItem">
-            <div className="caption">{testimonials.tochka.author}</div>
-            <div className="caption" style={{ textTransform: "none" }}>
-              {testimonials.tochka.role}
+        <div className="mStagger" style={{ marginTop: "6.4rem" }}>
+          <div className="mWord mRowLeft">как</div>
+          <div className="mWord mRowCenter">мы</div>
+          <div className="mWord mRowRight">работаем</div>
+        </div>
+        <div className="mSwipe">
+          {workModes.map((m, i) => (
+            <div className="mSwipeCard" key={i}>
+              <MNumber n={i + 1} />
+              <div className="body mTitle">{m.title}</div>
+              <p className="body">{m.text}</p>
             </div>
-            {testimonials.tochka.paragraphs.map((t, i) => (
-              <p className="body" key={i}>{t}</p>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
       </section>
 
+      {/* ---------- контакты ---------- */}
       <section className="mContacts">
-        <div className="caption">
-          <div>o3</div>
-          <div>контакты</div>
+        <MHeader n="o3" label="контакты" text={contactsLead} />
+        <div className="mStagger">
+          <div className="mWord mRowLeft">обсудим</div>
+          <div className="mWord mRowCenter">ваш</div>
+          <div className="mWord mRowRight">проект</div>
         </div>
-        <p className="lead" style={{ margin: "1.6rem 0" }}>{contactsLead}</p>
-        <div className="mWords">
-          <span className="h1">обсудим</span>
-          <span className="h1">ваш</span>
-          <span className="h1">проект</span>
-        </div>
-        <a className="linkCell" href="mailto:hello@charmer.design" style={{ justifyContent: "center", gap: "1rem" }}>
+        <a className="mArrow" href="mailto:hello@charmer.design" aria-label="Написать нам">
           <Paren kind="[" />
-          <span className="arrowGlyph">→</span>
+          <span className="mWord">→</span>
           <Paren kind="]" />
-          <Wordmark />
         </a>
-        {footerCols.map((t, i) => (
-          <p className="caption" key={i} style={{ margin: "1.2rem 0" }}>{t}</p>
-        ))}
-        <div className="caption" style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>charmer.design</span>
-          <span>hello@charmer.design</span>
-        </div>
-        <div className="caption" style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>TG, IN, be</span>
-          <span>© 2013-2026</span>
+        <div className="mFooter caption">
+          {footerCols.map((t, i) => (
+            <p key={i}>{t}</p>
+          ))}
+          <div className="mFooterLinks">
+            <div>charmer.design</div>
+            <div>hello@charmer.design</div>
+            <div className="mFooterRow">
+              <span>TG, IN, be</span>
+              <span>© 2013-2026</span>
+            </div>
+          </div>
         </div>
       </section>
     </div>
