@@ -49,6 +49,15 @@ function Swap({ text, className = "h1" }) {
   );
 }
 
+/* Смена с чистым проявлением, без сдвига */
+function Fade({ text, className = "h1" }) {
+  return (
+    <span key={text} className={`swapFade ${className}`}>
+      {text}
+    </span>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Ячейки хиро                                                        */
 /* ------------------------------------------------------------------ */
@@ -237,29 +246,20 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
       ? { n: "o3", label: "клиенты", text: clientsLead }
       : { n: "o2", label: "подход", text: approachLead };
 
-  /* большие слова */
-  const motoWords =
-    mode === "principles"
-      ? principles[principleIdx].words
-      : mode === "skills"
-      ? ["что", "мы", "умеем"]
-      : mode === "work"
-      ? ["как", "мы", "работаем"]
-      : ["нам", "доверяют", ""];
-
-  const motoStyle =
-    mode === "skills"
-      ? { right: "calc(33.33% + 0.4rem)" }
-      : mode === "clients"
-      ? { top: "54rem" }
-      : undefined;
-
-  /* листинг «что мы умеем»: подвозим активный пункт к верху колонки */
+  /* листинг «что мы умеем»: активный пункт встаёт на центральную
+     линию — его цифра на уровне большого заголовка */
   const skillRefs = useRef([]);
   const [skillShift, setSkillShift] = useState(0);
   useLayoutEffect(() => {
     const el = skillRefs.current[skillIdx];
-    if (el) setSkillShift(el.offsetTop);
+    if (!el) return;
+    const remPx = parseFloat(
+      getComputedStyle(document.documentElement).fontSize
+    );
+    /* линия = верх строки больших слов (центр минус полстроки h1),
+       минус top колонки (27.4rem) */
+    const line = window.innerHeight / 2 - 4 * remPx - 27.4 * remPx;
+    setSkillShift(el.offsetTop - Math.max(0, line));
   }, [skillIdx]);
 
   const pr = principles[principleIdx];
@@ -281,15 +281,6 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
             <div>{leadCfg.label}</div>
           </div>
         </div>
-      </div>
-
-      {/* большие слова */}
-      <div className="moto" style={motoStyle}>
-        {motoWords.map((w, i) => (
-          <span className="slot" key={i}>
-            {w ? <Swap text={w} /> : <span className="h1" style={{ opacity: 0 }}>.</span>}
-          </span>
-        ))}
       </div>
 
       {/* ---- принципы (1)(2)(3) ---- */}
@@ -414,6 +405,47 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+});
+
+/* ------------------------------------------------------------------ */
+/*  Большие слова — отдельный слой: не ездит со скроллом,             */
+/*  всегда по центру, слова просто проявляются                         */
+/* ------------------------------------------------------------------ */
+
+const MotoLayer = memo(function MotoLayer({ ui, innerRef }) {
+  const { mode, principleIdx } = ui;
+
+  const words =
+    mode === "principles"
+      ? principles[principleIdx].words
+      : mode === "skills"
+      ? ["что", "мы", "умеем"]
+      : mode === "work"
+      ? ["как", "мы", "работаем"]
+      : ["нам", "доверяют", ""];
+
+  return (
+    <div
+      ref={innerRef}
+      className="motoLayer"
+      style={{ opacity: 0, visibility: "hidden" }}
+    >
+      <div
+        className="moto"
+        style={mode === "skills" ? { right: "calc(33.33% + 0.4rem)" } : undefined}
+      >
+        {words.map((w, i) => (
+          <span className="slot" key={i}>
+            {w ? (
+              <Fade text={w} />
+            ) : (
+              <span className="h1" style={{ opacity: 0 }}>.</span>
+            )}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -667,6 +699,7 @@ function computeUi(p) {
 export default function Page() {
   const [ui, setUi] = useState(() => computeUi(0));
   const mainRef = useRef(null);
+  const motoRef = useRef(null);
   const contactsRef = useRef(null);
 
   useEffect(() => {
@@ -694,8 +727,18 @@ export default function Page() {
       const smooth =
         (lenis ? lenis.scroll : window.scrollY) / window.innerHeight;
 
-      apply(mainRef.current, seg(smooth, "mainIn"));
-      apply(contactsRef.current, seg(smooth, "contactsIn"));
+      const mainT = seg(smooth, "mainIn");
+      const contactsT = seg(smooth, "contactsIn");
+      apply(mainRef.current, mainT);
+      apply(contactsRef.current, contactsT);
+
+      /* слова: проявляются, когда шторка почти доехала; гаснут под контактами */
+      if (motoRef.current) {
+        const clamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+        const o = clamp((mainT - 0.6) * 2.5) * (1 - clamp(contactsT * 1.6));
+        motoRef.current.style.opacity = String(o);
+        motoRef.current.style.visibility = o <= 0.001 ? "hidden" : "visible";
+      }
 
       const next = computeUi(smooth);
       if (
@@ -734,6 +777,7 @@ export default function Page() {
             heroDone={ui.heroDone}
           />
           <MainLayer ui={ui} innerRef={mainRef} />
+          <MotoLayer ui={ui} innerRef={motoRef} />
           <ContactsLayer innerRef={contactsRef} />
         </div>
       </div>

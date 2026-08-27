@@ -333,7 +333,15 @@ a {
    ================================================================== */
 
 .mainLayer {
+  background: var(--yellow);
   will-change: transform;
+}
+
+/* слой больших слов: не скроллится, всегда по центру */
+.motoLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .contacts {
@@ -371,7 +379,21 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: top 0.7s cubic-bezier(0.7, 0, 0.2, 1), right 0.7s cubic-bezier(0.7, 0, 0.2, 1);
+  transition: right 0.7s cubic-bezier(0.7, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.swapFade {
+  display: inline-block;
+  animation: fadeIn 0.8s ease both;
 }
 
 .moto .slot {
@@ -513,7 +535,7 @@ a {
 .logosCol {
   position: absolute;
   left: calc(91.67% - 15.3rem);
-  top: 50rem;
+  top: calc(50% - 4rem);
   bottom: 0;
   width: 30.6rem;
   overflow: hidden;
@@ -551,7 +573,7 @@ a {
 
 .logosParens {
   position: absolute;
-  top: 50rem;
+  top: calc(50% - 4rem);
   left: calc(91.67% - 15.3rem);
   width: 30.6rem;
   height: 8rem;
