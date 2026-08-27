@@ -322,7 +322,11 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
               key={i}
               className="skillItem"
               ref={(el) => (skillRefs.current[i] = el)}
-              style={{ opacity: i <= skillIdx ? 1 : 0.35, transition: "opacity .4s" }}
+              style={{
+                /* проеханные пункты исчезают целиком, будущие приглушены */
+                opacity: i < skillIdx ? 0 : i === skillIdx ? 1 : 0.35,
+                transition: "opacity .45s ease",
+              }}
             >
               <div className="num">
                 <Paren kind="(" />
