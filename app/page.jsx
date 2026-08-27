@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Lenis from "lenis";
 import {
   TOTAL,
   seg,
@@ -27,6 +28,12 @@ import {
 } from "../lib/content";
 
 import { Paren, Wordmark } from "../components/glyphs";
+
+/* Программный скролл — через Lenis, чтобы ехал с той же инерцией */
+function smoothTo(y) {
+  if (window.__lenis) window.__lenis.scrollTo(y, { duration: 1.6 });
+  else window.scrollTo({ top: y, behavior: "smooth" });
+}
 
 /* ------------------------------------------------------------------ */
 /*  Мелкие детали                                                      */
@@ -119,10 +126,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
           key={rank}
           style={{ cursor: "pointer" }}
           onClick={() =>
-            window.scrollTo({
-              top: window.innerHeight * (segStart("mainIn") + 0.7),
-              behavior: "smooth",
-            })
+            smoothTo(window.innerHeight * (segStart("mainIn") + 0.7))
           }
         >
           <Paren kind="[" />
@@ -461,7 +465,7 @@ const ContactsLayer = memo(function ContactsLayer({ innerRef }) {
 
       <button
         className="toTop caption"
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        onClick={() => smoothTo(0)}
       >
         наверх
       </button>
@@ -666,12 +670,17 @@ export default function Page() {
   const contactsRef = useRef(null);
 
   useEffect(() => {
-    /* Один rAF-цикл: непрерывные движения пишутся напрямую в DOM
-       со сглаживанием (инерция), React получает только дискретные
-       переключения. Так скролл остаётся плавным. */
+    /* Lenis виртуализирует колесо и сам плавно ведёт скролл страницы —
+       всё движение получает инерцию, как на charmerstudio.com.
+       Наш rAF-цикл читает уже сглаженное значение: и шторки,
+       и дискретные переключения приезжают с той же инерцией. */
+    const isDesktop = window.matchMedia("(min-width: 901px)").matches;
+    const lenis = isDesktop
+      ? new Lenis({ autoRaf: false, lerp: 0.09, wheelMultiplier: 1 })
+      : null;
+    window.__lenis = lenis;
+
     let raf = 0;
-    let smooth = window.scrollY / window.innerHeight;
-    let last = performance.now();
     let prevUi = null;
 
     const apply = (el, t) => {
@@ -681,18 +690,14 @@ export default function Page() {
     };
 
     const tick = (now) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      const target = window.scrollY / window.innerHeight;
-
-      /* экспоненциальное сглаживание, независимое от FPS */
-      smooth += (target - smooth) * (1 - Math.exp(-dt * 10));
-      if (Math.abs(target - smooth) < 0.0004) smooth = target;
+      if (lenis) lenis.raf(now);
+      const smooth =
+        (lenis ? lenis.scroll : window.scrollY) / window.innerHeight;
 
       apply(mainRef.current, seg(smooth, "mainIn"));
       apply(contactsRef.current, seg(smooth, "contactsIn"));
 
-      const next = computeUi(target);
+      const next = computeUi(smooth);
       if (
         !prevUi ||
         next.goneCount !== prevUi.goneCount ||
@@ -712,7 +717,11 @@ export default function Page() {
     };
 
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (lenis) lenis.destroy();
+      window.__lenis = null;
+    };
   }, []);
 
   return (

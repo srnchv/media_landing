@@ -33,9 +33,7 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
+/* scroll-behavior: smooth убран — конфликтует с Lenis */
 
 body {
   background: var(--yellow);
