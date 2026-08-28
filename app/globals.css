@@ -335,6 +335,7 @@ a {
 .mainLayer {
   background: var(--yellow);
   will-change: transform;
+  overflow: hidden;
 }
 
 /* слой больших слов: не скроллится, всегда по центру */
@@ -394,6 +395,30 @@ a {
 .swapFade {
   display: inline-block;
   animation: fadeIn 0.8s ease both;
+}
+
+/* каскадное проявление по словам: слово выезжает из своей строки-маски */
+.rwClip {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.rw {
+  display: inline-block;
+  transform: translateY(115%);
+  animation: rwIn 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+@keyframes rwIn {
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* каскадная сборка хиро при загрузке */
+.cell {
+  animation: fadeIn 0.55s ease both;
 }
 
 .moto .slot {

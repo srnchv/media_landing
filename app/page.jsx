@@ -58,6 +58,23 @@ function Fade({ text, className = "h1" }) {
   );
 }
 
+/* Каскадное проявление текста по словам (референсный приём) */
+function RevealWords({ text, className = "", stagger = 22 }) {
+  return (
+    <span key={text} className={className} style={{ display: "inline" }}>
+      {text.split(" ").map((w, i) => (
+        <span key={i}>
+          <span className="rwClip">
+            <span className="rw" style={{ animationDelay: `${i * stagger}ms` }}>
+              {w}
+            </span>
+          </span>{" "}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Ячейки хиро                                                        */
 /* ------------------------------------------------------------------ */
@@ -107,7 +124,7 @@ const RATIO_SIZE = {
 /*  Хиро-слой                                                          */
 /* ------------------------------------------------------------------ */
 
-const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
+const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone, innerRef }) {
   const [hovered, setHovered] = useState(null);
 
   /* порядок исчезания: все ячейки + оба ряда заголовков */
@@ -120,9 +137,10 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
     const cls = `cell${gone(rank) ? " gone" : ""}${
       hoverActive && !(cell.t === "w" && cell.i === hovered) ? " blurred" : ""
     }`;
+    const intro = { animationDelay: `${order[rank] * 22}ms` };
     if (cell.t === "logo")
       return (
-        <div className={`${cls} linkCell`} key={rank}>
+        <div className={`${cls} linkCell`} key={rank} style={intro}>
           <Paren kind="[" />
           <Wordmark />
           <Paren kind="]" />
@@ -133,7 +151,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
         <div
           className={`${cls} linkCell`}
           key={rank}
-          style={{ cursor: "pointer" }}
+          style={{ ...intro, cursor: "pointer" }}
           onClick={() =>
             smoothTo(window.innerHeight * (segStart("mainIn") + 0.7))
           }
@@ -143,9 +161,9 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
           <Paren kind="]" />
         </div>
       );
-    if (cell.t === "f") return <div className={cls} key={rank}><FactItem f={facts[cell.i]} /></div>;
+    if (cell.t === "f") return <div className={cls} key={rank} style={intro}><FactItem f={facts[cell.i]} /></div>;
     return (
-      <div className={cls} key={rank}>
+      <div className={cls} key={rank} style={intro}>
         <WorkItem
           w={works[cell.i]}
           onHover={() => setHovered(cell.i)}
@@ -166,6 +184,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
 
   return (
     <div
+      ref={innerRef}
       className="layer"
       style={heroDone ? { visibility: "hidden", pointerEvents: "none" } : undefined}
     >
@@ -173,6 +192,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
         {topCells}
         <div
           className={`headingRow cell${gone(headingTopRank) ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
+          style={{ animationDelay: `${order[headingTopRank] * 22}ms` }}
         >
           <div className="half split">
             <span className="h1">дизайн</span>
@@ -187,6 +207,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
       <div className="heroGrid bottom">
         <div
           className={`headingRow cell${gone(headingBottomRank) ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
+          style={{ animationDelay: `${order[headingBottomRank] * 22}ms` }}
         >
           <div className="half" />
           <div className="half split">
@@ -200,7 +221,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
       <p
         className={`heroLead lead${leadGone ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
       >
-        {heroLead}
+        <RevealWords text={heroLead} stagger={12} />
       </p>
 
       {/* картинка активного проекта; пропорция любая, высота ≤ 800px */}
@@ -272,14 +293,14 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
       className="layer mainLayer"
       style={{ transform: "translate3d(0, 100vh, 0)", visibility: "hidden" }}
     >
-      {/* верхний лид */}
+      {/* верхний лид: текст проявляется каскадом по словам */}
       <div className="sectionLead">
-        <div key={leadCfg.n} className="swapWord" style={{ display: "block" }}>
-          <p className="lead leadText">{leadCfg.text}</p>
-          <div className="marker caption">
-            <div>{leadCfg.n}</div>
-            <div>{leadCfg.label}</div>
-          </div>
+        <p className="lead leadText">
+          <RevealWords text={leadCfg.text} stagger={14} />
+        </p>
+        <div key={leadCfg.n} className="swapFade marker caption" style={{ display: "block" }}>
+          <div>{leadCfg.n}</div>
+          <div>{leadCfg.label}</div>
         </div>
       </div>
 
@@ -702,6 +723,7 @@ function computeUi(p) {
 
 export default function Page() {
   const [ui, setUi] = useState(() => computeUi(0));
+  const heroRef = useRef(null);
   const mainRef = useRef(null);
   const motoRef = useRef(null);
   const contactsRef = useRef(null);
@@ -733,8 +755,25 @@ export default function Page() {
 
       const mainT = seg(smooth, "mainIn");
       const contactsT = seg(smooth, "contactsIn");
-      apply(mainRef.current, mainT);
-      apply(contactsRef.current, contactsT);
+      /* характер переходов: easeInOutCubic на шторках,
+         нижний слой уезжает параллаксом с лёгким масштабом */
+      const ease = (x) =>
+        x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+      const mT = ease(mainT);
+      const cT = ease(contactsT);
+
+      if (heroRef.current) {
+        heroRef.current.style.transform = `translate3d(0, ${-mT * 22}vh, 0)`;
+      }
+      if (mainRef.current) {
+        const el = mainRef.current;
+        el.style.transform = `translate3d(0, calc(${(1 - mT) * 100}vh - ${
+          cT * 16
+        }vh), 0) scale(${1 - 0.045 * cT})`;
+        el.style.borderRadius = `${cT * 2.4}rem`;
+        el.style.visibility = mainT <= 0.001 ? "hidden" : "visible";
+      }
+      apply(contactsRef.current, cT);
 
       /* слова: проявляются, когда шторка почти доехала; гаснут под контактами */
       if (motoRef.current) {
@@ -779,6 +818,7 @@ export default function Page() {
             goneCount={ui.goneCount}
             leadGone={ui.leadGone}
             heroDone={ui.heroDone}
+            innerRef={heroRef}
           />
           <MainLayer ui={ui} innerRef={mainRef} />
           <MotoLayer ui={ui} innerRef={motoRef} />
