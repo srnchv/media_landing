@@ -246,20 +246,27 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
       ? { n: "o3", label: "клиенты", text: clientsLead }
       : { n: "o2", label: "подход", text: approachLead };
 
-  /* листинг «что мы умеем»: активный пункт встаёт на центральную
-     линию — его цифра на уровне большого заголовка */
+  /* стопка «что мы умеем»: активный пункт на линии слов,
+     прошлые уезжают вверх бледной лесенкой, будущие скрыты снизу */
   const skillRefs = useRef([]);
-  const [skillShift, setSkillShift] = useState(0);
+  const [skillOffsets, setSkillOffsets] = useState([]);
   useLayoutEffect(() => {
-    const el = skillRefs.current[skillIdx];
-    if (!el) return;
     const remPx = parseFloat(
       getComputedStyle(document.documentElement).fontSize
     );
-    /* линия = верх строки больших слов (центр минус полстроки h1),
-       минус top колонки (27.4rem) */
-    const line = window.innerHeight / 2 - 4 * remPx - 27.4 * remPx;
-    setSkillShift(el.offsetTop - Math.max(0, line));
+    const gap = 4 * remPx;
+    const hs = skillRefs.current.map((el) => (el ? el.offsetHeight : 0));
+    setSkillOffsets(
+      skills.map((_, i) => {
+        if (i === skillIdx) return 0;
+        if (i < skillIdx) {
+          let sum = 0;
+          for (let j = i; j < skillIdx; j++) sum -= hs[j] + gap;
+          return sum;
+        }
+        return 8 * remPx;
+      })
+    );
   }, [skillIdx]);
 
   const pr = principles[principleIdx];
@@ -311,48 +318,52 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
         </div>
       </div>
 
-      {/* ---- что мы умеем ---- */}
-      <div className={`skillsCol fadeBlock${mode === "skills" ? "" : mode === "principles" ? " hidden" : " hiddenUp"}`}>
-        <div
-          className="skillsInner"
-          style={{ transform: `translateY(-${skillShift}px)` }}
-        >
-          {skills.map((s, i) => (
-            <div
-              key={i}
-              className="skillItem"
-              ref={(el) => (skillRefs.current[i] = el)}
-              style={{
-                /* проеханные пункты исчезают целиком, будущие приглушены */
-                opacity: i < skillIdx ? 0 : i === skillIdx ? 1 : 0.35,
-                transition: "opacity .45s ease",
-              }}
-            >
-              <div className="num">
-                <Paren kind="(" />
-                <span className="h1">{i + 1}</span>
-                <Paren kind=")" />
-              </div>
-              <div className="body" style={{ textTransform: "uppercase" }}>{s.title}</div>
-              <div className="body">{s.text}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* картинка/видео слева — меняется по активному пункту */}
-      <div className={`skillsImage fadeBlock${mode === "skills" ? "" : mode === "principles" ? " hidden" : " hiddenUp"}`}>
+      {/* ---- что мы умеем: карточки на линии слов ---- */}
+      <div className={`skillsStack fadeBlock${mode === "skills" ? "" : mode === "principles" ? " hidden" : " hiddenUp"}`}>
         {skills.map((s, i) => (
           <div
             key={i}
-            className={`ph${i === skillIdx ? " on" : ""}`}
+            ref={(el) => (skillRefs.current[i] = el)}
+            className={`skillCard${i < skillIdx ? " past" : i > skillIdx ? " future" : ""}`}
             style={{
-              background: `linear-gradient(160deg, ${SKILL_HUES[i][0]}, ${SKILL_HUES[i][1]})`,
+              transform: `translateY(${skillOffsets[i] ?? (i === skillIdx ? 0 : 80)}px)`,
             }}
           >
-            {`0${i + 1}`}
+            <div className="num">
+              <Paren kind="(" />
+              <span className="h1">{i + 1}</span>
+              <Paren kind=")" />
+            </div>
+            <div className="body skillTitle">{s.title}</div>
+            <div className="body">{s.text}</div>
           </div>
         ))}
+      </div>
+
+      {/* планшет с живым контентом — лента листается по активному пункту */}
+      <div className={`tablet fadeBlock${mode === "skills" ? "" : mode === "principles" ? " hidden" : " hiddenUp"}`}>
+        <div className="tabletScreen">
+          <div
+            className="tabletFeed"
+            style={{ transform: `translateY(-${skillIdx * 100}%)` }}
+          >
+            {skills.map((s, i) => (
+              <div
+                className="tabletSlide"
+                key={i}
+                style={{
+                  background: `linear-gradient(160deg, ${SKILL_HUES[i][0]}, ${SKILL_HUES[i][1]})`,
+                }}
+              >
+                {i === 0 && works[0].image ? (
+                  <img src={works[0].image.src} alt="" />
+                ) : (
+                  <span>{`0${i + 1}`}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ---- как мы работаем ---- */}
