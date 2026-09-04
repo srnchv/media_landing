@@ -847,6 +847,13 @@ a {
     line-height: 1.4rem;
   }
 
+  /* подписи на мобиле: кегль меньше, чтобы вернулся интерлиньяж
+     (десктопные 14.3/16 на 390px слипаются) */
+  .mobile .caption {
+    font-size: 1.2rem;
+    line-height: 1.6rem;
+  }
+
   .mobile .body {
     font-size: 1.4rem;
     line-height: 2rem;
