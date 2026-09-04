@@ -269,6 +269,28 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
     );
   }, [skillIdx]);
 
+  /* стопка текстов принципов: активный внизу, призраки над ним */
+  const prRefs = useRef([]);
+  const [prOffsets, setPrOffsets] = useState([]);
+  useLayoutEffect(() => {
+    const remPx = parseFloat(
+      getComputedStyle(document.documentElement).fontSize
+    );
+    const gap = 2.4 * remPx;
+    const hs = prRefs.current.map((el) => (el ? el.offsetHeight : 0));
+    setPrOffsets(
+      principles.map((_, i) => {
+        if (i === principleIdx) return 0;
+        if (i < principleIdx) {
+          let sum = 0;
+          for (let j = i + 1; j <= principleIdx; j++) sum -= hs[j] + gap;
+          return sum;
+        }
+        return 6 * remPx;
+      })
+    );
+  }, [principleIdx]);
+
   const pr = principles[principleIdx];
   const activeBrand = brands[logoIdx];
   const quote = testimonials[activeBrand.id];
@@ -290,32 +312,32 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
         </div>
       </div>
 
-      {/* ---- принципы (1)(2)(3) ---- */}
+      {/* ---- принципы: (N) по центру над строкой слов ---- */}
       <div
         className={`numTag fadeBlock${mode === "principles" ? "" : " hiddenUp"}`}
-        style={{ left: pr.numPos }}
+        style={{ left: "50%" }}
       >
         <Paren kind="(" />
         <Swap text={String(principleIdx + 1)} />
         <Paren kind=")" />
       </div>
 
-      <div
-        className={`principleText body fadeBlock${mode === "principles" ? "" : " hidden"}`}
-        style={{
-          left:
-            pr.textPos === "left"
-              ? "1.2rem"
-              : pr.textPos === "center"
-              ? "calc(33.33% + 0.8rem)"
-              : "calc(66.67% + 0.4rem)",
-        }}
-      >
-        <div key={principleIdx} className="swapWord" style={{ display: "block" }}>
-          {pr.paragraphs.map((t, i) => (
-            <p key={i}>{t}</p>
-          ))}
-        </div>
+      {/* текст принципа: внизу справа, смена двойной экспозицией */}
+      <div className={`principleStack fadeBlock${mode === "principles" ? "" : " hidden"}`}>
+        {principles.map((pr, i) => (
+          <div
+            key={i}
+            ref={(el) => (prRefs.current[i] = el)}
+            className={`prText body ${
+              i === principleIdx ? "cur" : i < principleIdx ? `g${principleIdx - i}` : "nxt"
+            }`}
+            style={{ transform: `translateY(${prOffsets[i] ?? 0}px)` }}
+          >
+            {pr.paragraphs.map((t, j) => (
+              <p key={j}>{t}</p>
+            ))}
+          </div>
+        ))}
       </div>
 
       {/* ---- что мы умеем: карточки на линии слов ---- */}
@@ -434,9 +456,7 @@ const MotoLayer = memo(function MotoLayer({ ui, innerRef }) {
   const { mode, principleIdx } = ui;
 
   const words =
-    mode === "principles"
-      ? principles[principleIdx].words
-      : mode === "skills"
+    mode === "skills"
       ? ["что", "мы", "умеем"]
       : mode === "work"
       ? ["как", "мы", "работаем"]
@@ -448,20 +468,50 @@ const MotoLayer = memo(function MotoLayer({ ui, innerRef }) {
       className="motoLayer"
       style={{ opacity: 0, visibility: "hidden" }}
     >
-      <div
-        className="moto"
-        style={mode === "skills" ? { right: "calc(33.33% + 0.4rem)" } : undefined}
-      >
-        {words.map((w, i) => (
-          <span className="slot" key={i}>
-            {w ? (
-              <Fade text={w} />
-            ) : (
-              <span className="h1" style={{ opacity: 0 }}>.</span>
-            )}
-          </span>
-        ))}
-      </div>
+      {mode === "principles" ? (
+        /* принципы: слова со стопкой бледных размытых призраков сверху */
+        <div className="moto">
+          {[0, 1, 2].map((slot) => (
+            <span className={`slot stackSlot slot${slot}`} key={slot}>
+              {slot === 1 ? (
+                <span className="stackWord cur">
+                  <span className="h1">как</span>
+                </span>
+              ) : (
+                principles.map((pr, i) => (
+                  <span
+                    key={i}
+                    className={`stackWord ${
+                      i === principleIdx
+                        ? "cur"
+                        : i < principleIdx
+                        ? `g${principleIdx - i}`
+                        : "nxt"
+                    }`}
+                  >
+                    <span className="h1">{pr.words[slot]}</span>
+                  </span>
+                ))
+              )}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div
+          className="moto"
+          style={mode === "skills" ? { right: "calc(33.33% + 0.4rem)" } : undefined}
+        >
+          {words.map((w, i) => (
+            <span className="slot" key={i}>
+              {w ? (
+                <Fade text={w} />
+              ) : (
+                <span className="h1" style={{ opacity: 0 }}>.</span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
