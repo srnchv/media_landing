@@ -1,14 +1,7 @@
 "use client";
 
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Lenis from "lenis";
-import {
-  TOTAL,
-  seg,
-  after,
-  segStart,
-  shuffledOrder,
-} from "../lib/timeline";
+import { shuffledOrder } from "../lib/timeline";
 import {
   works,
   facts,
@@ -29,10 +22,9 @@ import {
 
 import { Paren, Wordmark } from "../components/glyphs";
 
-/* Программный скролл — через Lenis, чтобы ехал с той же инерцией */
-function smoothTo(y) {
-  if (window.__lenis) window.__lenis.scrollTo(y, { duration: 1.6 });
-  else window.scrollTo({ top: y, behavior: "smooth" });
+/* Программный переход к шагу сцены (стрелка ↓, «наверх») */
+function goToStep(n) {
+  if (window.__goToStep) window.__goToStep(n);
 }
 
 /* ------------------------------------------------------------------ */
@@ -107,14 +99,16 @@ const RATIO_SIZE = {
 /*  Хиро-слой                                                          */
 /* ------------------------------------------------------------------ */
 
-const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
+const HeroLayer = memo(function HeroLayer({ heroGone, heroDone }) {
   const [hovered, setHovered] = useState(null);
 
   /* порядок исчезания: все ячейки + оба ряда заголовков */
   const order = useMemo(() => shuffledOrder(38), []);
-  const gone = (rank) => order[rank] < goneCount;
+  const gone = () => heroGone;
+  /* «шахматный» каскад: у каждой ячейки своя задержка исчезания */
+  const delay = (rank) => ({ transitionDelay: heroGone ? `${order[rank] * 22}ms` : "0ms" });
 
-  const hoverActive = hovered != null && goneCount === 0;
+  const hoverActive = hovered != null && !heroGone;
 
   const renderCell = (cell, rank) => {
     const cls = `cell${gone(rank) ? " gone" : ""}${
@@ -122,7 +116,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
     }`;
     if (cell.t === "logo")
       return (
-        <div className={`${cls} linkCell`} key={rank}>
+        <div className={`${cls} linkCell`} key={rank} style={delay(rank)}>
           <Paren kind="[" />
           <Wordmark />
           <Paren kind="]" />
@@ -133,19 +127,17 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
         <div
           className={`${cls} linkCell`}
           key={rank}
-          style={{ cursor: "pointer" }}
-          onClick={() =>
-            smoothTo(window.innerHeight * (segStart("mainIn") + 0.7))
-          }
+          style={{ ...delay(rank), cursor: "pointer" }}
+          onClick={() => goToStep(1)}
         >
           <Paren kind="[" />
           <span className="arrowGlyph">↓</span>
           <Paren kind="]" />
         </div>
       );
-    if (cell.t === "f") return <div className={cls} key={rank}><FactItem f={facts[cell.i]} /></div>;
+    if (cell.t === "f") return <div className={cls} key={rank} style={delay(rank)}><FactItem f={facts[cell.i]} /></div>;
     return (
-      <div className={cls} key={rank}>
+      <div className={cls} key={rank} style={delay(rank)}>
         <WorkItem
           w={works[cell.i]}
           onHover={() => setHovered(cell.i)}
@@ -173,6 +165,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
         {topCells}
         <div
           className={`headingRow cell${gone(headingTopRank) ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
+          style={delay(headingTopRank)}
         >
           <div className="half split">
             <span className="h1">дизайн</span>
@@ -187,6 +180,7 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
       <div className="heroGrid bottom">
         <div
           className={`headingRow cell${gone(headingBottomRank) ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
+          style={delay(headingBottomRank)}
         >
           <div className="half" />
           <div className="half split">
@@ -198,7 +192,8 @@ const HeroLayer = memo(function HeroLayer({ goneCount, leadGone, heroDone }) {
       </div>
 
       <p
-        className={`heroLead lead${leadGone ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
+        className={`heroLead lead${heroGone ? " gone" : ""}${hoverActive ? " blurred" : ""}`}
+        style={{ transitionDelay: heroGone ? "350ms" : "0ms" }}
       >
         {heroLead}
       </p>
@@ -299,7 +294,6 @@ const MainLayer = memo(function MainLayer({ ui, innerRef }) {
     <div
       ref={innerRef}
       className="layer mainLayer"
-      style={{ transform: "translate3d(0, 100vh, 0)", visibility: "hidden" }}
     >
       {/* верхний лид */}
       <div className="sectionLead">
@@ -466,7 +460,6 @@ const MotoLayer = memo(function MotoLayer({ ui, innerRef }) {
     <div
       ref={innerRef}
       className="motoLayer"
-      style={{ opacity: 0, visibility: "hidden" }}
     >
       {mode === "principles" ? (
         /* принципы: слова со стопкой бледных размытых призраков сверху */
@@ -525,7 +518,6 @@ const ContactsLayer = memo(function ContactsLayer({ innerRef }) {
     <div
       ref={innerRef}
       className="contacts"
-      style={{ transform: "translate3d(0, 100vh, 0)", visibility: "hidden" }}
     >
       <div className="sectionLead">
         <p className="lead leadText">{contactsLead}</p>
@@ -562,7 +554,7 @@ const ContactsLayer = memo(function ContactsLayer({ innerRef }) {
 
       <button
         className="toTop caption"
-        onClick={() => smoothTo(0)}
+        onClick={() => goToStep(0)}
       >
         наверх
       </button>
@@ -728,119 +720,136 @@ function Mobile() {
 /*  Страница                                                           */
 /* ------------------------------------------------------------------ */
 
-/* Дискретные состояния сцены — React рендерится только при их смене */
-function computeUi(p) {
-  const fade = seg(p, "heroFade");
-  const mode = !after(p, "p3")
-    ? "principles"
-    : !after(p, "skillsRun")
-    ? "skills"
-    : !after(p, "workRun")
-    ? "work"
-    : "clients";
+/* ------------------------------------------------------------------ */
+/*  Пошаговая сцена: один жест = один шаг (как на unionspaces.co.uk)  */
+/* ------------------------------------------------------------------ */
+
+/* Линейный список состояний страницы */
+const STEPS = [
+  { k: "hero" },
+  ...principles.map((_, i) => ({ k: "p", i })),
+  ...skills.map((_, i) => ({ k: "s", i })),
+  ...workModes.map((_, i) => ({ k: "w", i })),
+  ...brands.map((_, i) => ({ k: "l", i })),
+  { k: "c" },
+];
+const LAST = STEPS.length - 1;
+
+function uiForStep(n) {
+  const st = STEPS[n];
+  const mode =
+    st.k === "p" || st.k === "hero"
+      ? "principles"
+      : st.k === "s"
+      ? "skills"
+      : st.k === "w"
+      ? "work"
+      : "clients";
   return {
-    goneCount: Math.floor(fade * 40),
-    leadGone: fade > 0.85,
-    heroDone: after(p, "heroFade"),
+    step: n,
+    heroGone: n > 0,
+    heroDone: n > 1,
+    mainIn: n > 0,
+    contactsIn: st.k === "c",
     mode,
-    principleIdx: seg(p, "p3") > 0 ? 2 : seg(p, "p2") > 0 ? 1 : 0,
-    skillIdx: Math.min(
-      5,
-      seg(p, "skillsIn") < 1 ? 0 : Math.floor(seg(p, "skillsRun") * 5.999)
-    ),
-    workCount:
-      mode !== "work"
-        ? 0
-        : seg(p, "workRun") > 0
-        ? Math.min(4, 2 + Math.floor(seg(p, "workRun") * 3))
-        : 1,
-    logoIdx: Math.min(
-      brands.length - 1,
-      Math.floor(seg(p, "logosRun") * brands.length)
-    ),
+    principleIdx: st.k === "p" ? st.i : st.k === "hero" ? 0 : principles.length - 1,
+    skillIdx: st.k === "s" ? st.i : mode === "skills" ? 0 : n < 1 + principles.length ? 0 : skills.length - 1,
+    workCount: st.k === "w" ? st.i + 1 : mode === "work" ? 1 : 0,
+    logoIdx: st.k === "l" ? st.i : st.k === "c" ? brands.length - 1 : 0,
   };
 }
 
+const STEP_LOCK_MS = 1000;
+
 export default function Page() {
-  const [ui, setUi] = useState(() => computeUi(0));
+  const [ui, setUi] = useState(() => uiForStep(0));
+  const stepRef = useRef(0);
+  const lockRef = useRef(0);
   const mainRef = useRef(null);
   const motoRef = useRef(null);
   const contactsRef = useRef(null);
 
   useEffect(() => {
-    /* Lenis виртуализирует колесо и сам плавно ведёт скролл страницы —
-       всё движение получает инерцию, как на charmerstudio.com.
-       Наш rAF-цикл читает уже сглаженное значение: и шторки,
-       и дискретные переключения приезжают с той же инерцией. */
     const isDesktop = window.matchMedia("(min-width: 901px)").matches;
-    const lenis = isDesktop
-      ? new Lenis({ autoRaf: false, lerp: 0.09, wheelMultiplier: 1 })
-      : null;
-    window.__lenis = lenis;
+    if (!isDesktop) return;
 
-    let raf = 0;
-    let prevUi = null;
+    const go = (n) => {
+      const next = Math.max(0, Math.min(LAST, n));
+      if (next === stepRef.current) return;
+      stepRef.current = next;
+      lockRef.current = performance.now() + STEP_LOCK_MS;
+      setUi(uiForStep(next));
+    };
+    window.__goToStep = go;
 
-    const apply = (el, t) => {
-      if (!el) return;
-      el.style.transform = `translate3d(0, ${(1 - t) * 100}vh, 0)`;
-      el.style.visibility = t <= 0.001 ? "hidden" : "visible";
+    /* колесо/тачпад: реагируем только на начало жеста (ускорение),
+       хвост инерции игнорируем — так один взмах даёт ровно один шаг */
+    const recent = [];
+    let lastWheelAt = 0;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const now = performance.now();
+      const d = Math.abs(e.deltaY);
+      if (now - lastWheelAt > 120) recent.length = 0;
+      lastWheelAt = now;
+      const avg = recent.length
+        ? recent.reduce((a, b) => a + b, 0) / recent.length
+        : 0;
+      recent.push(d);
+      if (recent.length > 6) recent.shift();
+      if (now < lockRef.current) return;
+      const accelerating = recent.length < 2 || d >= avg;
+      if (d > 3 && accelerating) go(stepRef.current + (e.deltaY > 0 ? 1 : -1));
     };
 
-    const tick = (now) => {
-      if (lenis) lenis.raf(now);
-      const smooth =
-        (lenis ? lenis.scroll : window.scrollY) / window.innerHeight;
-
-      const mainT = seg(smooth, "mainIn");
-      const contactsT = seg(smooth, "contactsIn");
-      apply(mainRef.current, mainT);
-      apply(contactsRef.current, contactsT);
-
-      /* слова: проявляются, когда шторка почти доехала; гаснут под контактами */
-      if (motoRef.current) {
-        const clamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-        const o = clamp((mainT - 0.6) * 2.5) * (1 - clamp(contactsT * 1.6));
-        motoRef.current.style.opacity = String(o);
-        motoRef.current.style.visibility = o <= 0.001 ? "hidden" : "visible";
+    const onKey = (e) => {
+      if (["ArrowDown", "PageDown", " "].includes(e.key)) {
+        e.preventDefault();
+        if (performance.now() >= lockRef.current) go(stepRef.current + 1);
+      } else if (["ArrowUp", "PageUp"].includes(e.key)) {
+        e.preventDefault();
+        if (performance.now() >= lockRef.current) go(stepRef.current - 1);
       }
-
-      const next = computeUi(smooth);
-      if (
-        !prevUi ||
-        next.goneCount !== prevUi.goneCount ||
-        next.leadGone !== prevUi.leadGone ||
-        next.heroDone !== prevUi.heroDone ||
-        next.mode !== prevUi.mode ||
-        next.principleIdx !== prevUi.principleIdx ||
-        next.skillIdx !== prevUi.skillIdx ||
-        next.workCount !== prevUi.workCount ||
-        next.logoIdx !== prevUi.logoIdx
-      ) {
-        prevUi = next;
-        setUi(next);
-      }
-
-      raf = requestAnimationFrame(tick);
     };
 
-    raf = requestAnimationFrame(tick);
+    let touchY = null;
+    const onTouchStart = (e) => (touchY = e.touches[0].clientY);
+    const onTouchEnd = (e) => {
+      if (touchY == null) return;
+      const dy = touchY - e.changedTouches[0].clientY;
+      touchY = null;
+      if (Math.abs(dy) > 40 && performance.now() >= lockRef.current)
+        go(stepRef.current + (dy > 0 ? 1 : -1));
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
     return () => {
-      cancelAnimationFrame(raf);
-      if (lenis) lenis.destroy();
-      window.__lenis = null;
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.__goToStep = null;
     };
   }, []);
 
+  /* слои двигаются CSS-переходами по классам состояния */
+  useEffect(() => {
+    const m = mainRef.current;
+    const c = contactsRef.current;
+    const w = motoRef.current;
+    if (m) m.classList.toggle("in", ui.mainIn);
+    if (c) c.classList.toggle("in", ui.contactsIn);
+    if (w) w.classList.toggle("in", ui.mainIn && !ui.contactsIn);
+  }, [ui.mainIn, ui.contactsIn]);
+
   return (
-    <main>
-      <div className="scroller" style={{ height: `calc(${TOTAL} * 100vh + 100vh)` }}>
+    <main data-step={ui.step}>
+      <div className="scroller">
         <div className="stage">
-          <HeroLayer
-            goneCount={ui.goneCount}
-            leadGone={ui.leadGone}
-            heroDone={ui.heroDone}
-          />
+          <HeroLayer heroGone={ui.heroGone} heroDone={ui.heroDone} />
           <MainLayer ui={ui} innerRef={mainRef} />
           <MotoLayer ui={ui} innerRef={motoRef} />
           <ContactsLayer innerRef={contactsRef} />
