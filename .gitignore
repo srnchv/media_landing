@@ -9,3 +9,6 @@ shot*.mjs
 dbg*.mjs
 chk*.mjs
 rec*.mjs
+
+# скриншоты проверки
+shots/
