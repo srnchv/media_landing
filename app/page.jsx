@@ -760,6 +760,11 @@ function uiForStep(n) {
 }
 
 const STEP_LOCK_MS = 1000;
+/* внутри списка логотипов шаг короче — 12 позиций пролистываются быстро */
+const LOGO_LOCK_MS = 320;
+function lockFor(from, to) {
+  return STEPS[from].k === "l" && STEPS[to].k === "l" ? LOGO_LOCK_MS : STEP_LOCK_MS;
+}
 
 export default function Page() {
   const [ui, setUi] = useState(() => uiForStep(0));
@@ -776,8 +781,8 @@ export default function Page() {
     const go = (n) => {
       const next = Math.max(0, Math.min(LAST, n));
       if (next === stepRef.current) return;
+      lockRef.current = performance.now() + lockFor(stepRef.current, next);
       stepRef.current = next;
-      lockRef.current = performance.now() + STEP_LOCK_MS;
       setUi(uiForStep(next));
     };
     window.__goToStep = go;
@@ -798,8 +803,17 @@ export default function Page() {
       recent.push(d);
       if (recent.length > 6) recent.shift();
       if (now < lockRef.current) return;
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const cur = STEPS[stepRef.current].k;
+      const nxt = STEPS[Math.max(0, Math.min(LAST, stepRef.current + dir))].k;
+      /* внутри списка логотипов — «прокрутка»: длинный жест тачпада
+         продолжает листать позиции, пока сила движения заметна */
+      if (cur === "l" && nxt === "l") {
+        if (d > 8) go(stepRef.current + dir);
+        return;
+      }
       const accelerating = recent.length < 2 || d >= avg;
-      if (d > 3 && accelerating) go(stepRef.current + (e.deltaY > 0 ? 1 : -1));
+      if (d > 3 && accelerating) go(stepRef.current + dir);
     };
 
     const onKey = (e) => {
